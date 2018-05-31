@@ -43,16 +43,16 @@ getVar = parse varParser "unnecessary error"
   where
     varParser = string "{{" *> (pack <$> many1 (noneOf "}")) <* string "}}"
 
-fixColumns :: [ColumnsWidth] -> Int -> Int -> [ColumnsWidth]
+fixColumns :: [ColumnsProperties] -> Int -> Int -> [ColumnsProperties]
 fixColumns cw c n = prolog ++ dataepilog
   where
-    (prolog, rest) = span ((<c) . cwMax) cw
+    (prolog, rest) = span ((<c) . cpMax) cw
     dataepilog = case rest of
       [] -> []
       (dCW : rest') -> fixD dCW : map fixEpilog rest'
-    fixD (ColumnsWidth dMin dMax width style) = ColumnsWidth dMin (dMax + n - 1) width style
-    fixEpilog (ColumnsWidth dMin dMax width style) = ColumnsWidth (dMin + n - 1) (dMax + n - 1) width style
-{- ColumnsWidth is not using lenses :(
+    fixD (ColumnsProperties dMin dMax width style h c bf) = ColumnsProperties dMin (dMax + n - 1) width style h c bf
+    fixEpilog (ColumnsProperties dMin dMax width style h c bf) = ColumnsProperties (dMin + n - 1) (dMax + n - 1) width style h c bf
+{- ColumnsProperties is not using lenses :(
     fixD = cwMax +~ (n - 1)
     fixEpilog = cwMin +~ (n - 1)
               . cwMax +~ (n - 1)
@@ -70,7 +70,7 @@ fixRowHeights rh r n = insertCopies $ shift removeOriginal
 
 applyTemplateOnSheet :: (TemplateDataRow, TemplateSettings, [TemplateDataRow]) -> Worksheet -> Worksheet
 applyTemplateOnSheet (cdr, ts, d) ws =
-    ws & wsColumns           .~ cw
+    ws & wsColumnsProperties .~ cw
        & wsRowPropertiesMap  .~ rh
        & wsCells             %~ applyTemplateOnCellMap
   where
@@ -88,8 +88,8 @@ applyTemplateOnSheet (cdr, ts, d) ws =
       | otherwise       = [ ((row + i, col), applyTemplateOnCell dc  cell)
                           | (i, dc) <- zip [0 ..] d ]
     (cw, rh) = if tsOrientation ts == Columns
-                 then (fixColumns (ws ^. wsColumns) repeatRow n, ws ^. wsRowPropertiesMap)
-                 else (ws ^. wsColumns, fixRowHeights (ws ^. wsRowPropertiesMap) repeatRow n)
+                 then (fixColumns (ws ^. wsColumnsProperties) repeatRow n, ws ^. wsRowPropertiesMap)
+                 else (ws ^. wsColumnsProperties, fixRowHeights (ws ^. wsRowPropertiesMap) repeatRow n)
 
 applyTemplateOnXlsx :: [(TemplateDataRow, TemplateSettings, [TemplateDataRow])] -> Xlsx -> Xlsx
 applyTemplateOnXlsx options x =
